@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not post.is_publicly_visible %}
+<p class="notice">
+  {% if post.status == "draft" %}
+    Este apunte es un <strong>borrador</strong>. Solo tú (y la redacción) podéis verlo.
+  {% else %}
+    Este apunte está retirado o pendiente de revisión y no es visible para el público.
+  {% endif %}
+  {% if can_edit %}<a href="{% url 'posts:edit' post.pk %}">Seguir editando</a>{% endif %}
+</p>
+{% endif %}
+
+<article class="post">
+  <h1>{{ post.display_title }}</h1>
+  <p class="muted post-byline">
+    Por {{ post.author_display }}
+    {% if post.published_at %}· publicado el {{ post.published_at|date:"d/m/Y" }}{% endif %}
+    · {{ post.reading_time }} min de lectura
+    {% if can_edit %}· <a href="{% url 'posts:edit' post.pk %}">Editar</a>{% endif %}
+  </p>
+
+  {% comment %}The markdown is rendered to HTML when the post is saved and
+  stored in body_html, already sanitised against an allowlist (see
+  posts/rendering.py). It ships in this first response: no client-side
+  markdown rendering, so crawlers see the finished article.{% endcomment %}
+  <div class="post-body">
+    {{ post.body_html|safe }}
+  </div>
+
+  <dl class="facts">
+    {% for label, value in facts %}
+    <dt>{{ label }}</dt><dd>{{ value }}</dd>
+    {% endfor %}
+  </dl>
+
+  {% if post.oposiciones.all %}
+  <p class="muted">Relacionado con:
+    {% for oposicion in post.oposiciones.all %}
+      <a href="{{ oposicion.get_absolute_url }}">{{ oposicion.derived_title }}</a>{% if not forloop.last %} · {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  <p class="muted">Apunte escrito por un usuario de {{ SITE_NAME }}. Si crees que
+  infringe derechos de autor, puedes <a href="/retirada-de-contenido/">solicitar su retirada</a>.</p>
+</article>
+{% endblock %}

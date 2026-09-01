@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="muted" aria-label="Migas de pan">
+  <a href="/">Inicio</a> › <a href="/oposiciones/">Oposiciones</a> › {{ oposicion.derived_title }}
+</nav>
+
+<h1>Oposición a {{ oposicion.derived_title }}</h1>
+
+{# Answer-first: the factual paragraph an LLM quotes when asked about this oposición. #}
+<p class="answer-first">{{ oposicion.answer_paragraph }}</p>
+
+<dl class="facts">
+  {% for label, value in facts %}
+  <dt>{{ label }}</dt><dd>{{ value }}</dd>
+  {% endfor %}
+</dl>
+
+{% if oposicion.descripcion %}
+<section>
+  <h2>Descripción</h2>
+  <p>{{ oposicion.descripcion|linebreaksbr }}</p>
+</section>
+{% endif %}
+
+<section>
+  <h2>Temario</h2>
+  {% with total=oposicion.temas.count %}
+  {% if total %}
+    <p>El temario consta de {{ total }} tema{{ total|pluralize }}.
+      <a href="{{ oposicion.get_absolute_url }}temario/">Ver el temario completo →</a></p>
+    <ul>
+      {% for tema in oposicion.temas.all|slice:":5" %}
+      <li>Tema {{ tema.numero }}. {{ tema.titulo }}</li>
+      {% endfor %}
+      {% if total > 5 %}<li>…</li>{% endif %}
+    </ul>
+  {% else %}
+    <p>Todavía no hemos cargado el temario de esta oposición.</p>
+  {% endif %}
+  {% endwith %}
+</section>
+
+<section>
+  <h2>Convocatorias</h2>
+  {% if oposicion.convocatorias.exists %}
+  <table>
+    <thead><tr><th>Año</th><th>Estado</th><th>Plazas</th><th>Límite de solicitud</th><th></th></tr></thead>
+    <tbody>
+      {% for conv in oposicion.convocatorias.all %}
+      <tr>
+        <td>{{ conv.anio }}</td>
+        <td>{{ conv.get_estado_display }}</td>
+        <td>{{ conv.plazas|default:"—" }}</td>
+        <td>{{ conv.fecha_limite_solicitud|date:"d/m/Y"|default:"—" }}</td>
+        <td><a href="{{ conv.get_absolute_url }}">Detalle</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{{ oposicion.get_absolute_url }}convocatorias/">Histórico completo de convocatorias →</a></p>
+  {% else %}
+  <p>No consta ninguna convocatoria registrada.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Documentos</h2>
+  {% if documents %}
+  <ul class="card-list">
+    {% for doc in documents %}
+    <li>
+      <h3><a href="{{ doc.get_absolute_url }}">{{ doc.title }}</a></h3>
+      <p class="muted">{{ doc.get_source_type_display }}{% if doc.page_count %} · {{ doc.page_count }} páginas{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Aún no hay documentos publicados para esta oposición.</p>
+  {% endif %}
+</section>
+{% endblock %}

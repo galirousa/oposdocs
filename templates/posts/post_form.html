@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<h1>{% if post %}Editar apunte{% else %}Escribir un apunte{% endif %}</h1>
+
+{% if post and post.status == "published" %}
+<p class="notice">Este apunte está publicado. Lo que escribas aquí se guarda como
+borrador y no cambia lo que ven los lectores hasta que pulses «Publicar cambios».
+{% if post.has_unpublished_changes %}<strong>Tienes cambios sin publicar.</strong>{% endif %}
+</p>
+{% endif %}
+
+{% comment %}The editor works with JavaScript disabled: the two buttons below
+save the draft and publish it. Autosave is an enhancement on top.{% endcomment %}
+<form method="post" class="post-editor"
+      action="{% if post %}{% url 'posts:edit' post.pk %}{% else %}{% url 'posts:create' %}{% endif %}"
+      data-autosave-url="{{ autosave_url }}"
+      data-post-id="{{ post.pk|default_if_none:'' }}">
+  {% csrf_token %}
+  <input type="hidden" name="post_id" id="post-id" value="{{ post.pk|default_if_none:'' }}">
+  {{ form.as_p }}
+
+  <details class="markdown-help">
+    <summary>Cómo dar formato con Markdown</summary>
+    <table>
+      <thead><tr><th>Escribes</th><th>Se ve</th></tr></thead>
+      <tbody>
+        <tr><td><code>**negrita**</code></td><td><strong>negrita</strong></td></tr>
+        <tr><td><code>*cursiva*</code></td><td><em>cursiva</em></td></tr>
+        <tr><td><code>## Un título</code></td><td>Un título de sección</td></tr>
+        <tr><td><code>- elemento</code></td><td>Lista con viñetas</td></tr>
+        <tr><td><code>1. elemento</code></td><td>Lista numerada</td></tr>
+        <tr><td><code>&gt; cita</code></td><td>Cita destacada</td></tr>
+        <tr><td><code>[texto](https://…)</code></td><td>Enlace</td></tr>
+        <tr><td><code>`código`</code></td><td><code>código</code></td></tr>
+        <tr><td><code>| a | b |</code></td><td>Tabla</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Por seguridad se elimina el HTML que no esté en la lista permitida
+    (scripts, iframes, estilos). Máximo {{ max_body_chars }} caracteres.</p>
+  </details>
+
+  <p class="editor-actions">
+    <button type="submit" name="action" value="draft">Guardar borrador</button>
+    <button type="submit" name="action" value="publish" class="btn">
+      {% if post.status == "published" %}Publicar cambios{% else %}Publicar{% endif %}
+    </button>
+    {% if post %}<a href="{{ post.get_absolute_url }}">Ver {% if post.status == "published" %}apunte{% else %}borrador{% endif %}</a>{% endif %}
+    <a href="{% url 'posts:mine' %}">Mis apuntes</a>
+  </p>
+
+  {% comment %}aria-live so the autosave state is announced, not just painted.{% endcomment %}
+  <p class="autosave-status muted" id="autosave-status" role="status" aria-live="polite">
+    {% if post.draft_saved_at %}Borrador guardado el {{ post.draft_saved_at|date:"d/m/Y H:i" }}.{% endif %}
+  </p>
+</form>
+
+<script src="{% static 'js/autosave.js' %}" defer></script>
+{% endblock %}

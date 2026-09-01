@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="muted" aria-label="Migas de pan">
+  <a href="/">Inicio</a> › <a href="/oposiciones/">Oposiciones</a> ›
+  <a href="{{ oposicion.get_absolute_url }}">{{ oposicion.derived_title }}</a> › Convocatorias
+</nav>
+
+<h1>Convocatorias de {{ oposicion.derived_title }}</h1>
+
+{% if convocatorias %}
+<table>
+  <thead><tr><th>Año</th><th>Estado</th><th>Plazas</th><th>BOE</th><th>Límite de solicitud</th><th></th></tr></thead>
+  <tbody>
+    {% for conv in convocatorias %}
+    <tr>
+      <td>{{ conv.anio }}</td>
+      <td>{{ conv.get_estado_display }}</td>
+      <td>{{ conv.plazas|default:"—" }}</td>
+      <td>{% if conv.url_boe %}<a href="{{ conv.url_boe }}" rel="nofollow noopener">{{ conv.referencia_boe }}</a>{% else %}{{ conv.referencia_boe|default:"—" }}{% endif %}</td>
+      <td>{{ conv.fecha_limite_solicitud|date:"d/m/Y"|default:"—" }}</td>
+      <td><a href="{{ conv.get_absolute_url }}">Detalle</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No consta ninguna convocatoria registrada para esta oposición.</p>
+{% endif %}
+{% endblock %}

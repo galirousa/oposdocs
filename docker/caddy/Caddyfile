@@ -1,0 +1,12 @@
+# Automatic HTTPS for the public domain. Behind a Cloudflare Tunnel the
+# tunnel connects to port 80; Caddy still handles direct HTTPS if exposed.
+{$SITE_DOMAIN} {
+	encode gzip zstd
+
+	reverse_proxy web:8000
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

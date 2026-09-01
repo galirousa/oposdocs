@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Índice de oposiciones</h1>
+
+<div class="facet-bar">
+  <strong>Ámbito:</strong>
+  <a href="/oposiciones/" {% if not request.GET.ambito %}class="active"{% endif %}>Todos</a>
+  {% for value, label in ambitos %}
+    <a href="?ambito={{ value }}" {% if request.GET.ambito == value %}class="active"{% endif %}>{{ label }}</a>
+  {% endfor %}
+  &nbsp;<strong>Grupo:</strong>
+  <a href="/oposiciones/" {% if not request.GET.grupo %}class="active"{% endif %}>Todos</a>
+  {% for value, label in grupos %}
+    <a href="?grupo={{ value }}" {% if request.GET.grupo == value %}class="active"{% endif %}>{{ value }}</a>
+  {% endfor %}
+</div>
+
+<ul class="card-list">
+  {% for op in oposiciones %}
+  <li>
+    <h3><a href="{{ op.get_absolute_url }}">{{ op.derived_title }}</a></h3>
+    <p class="muted">Grupo {{ op.grupo }} · {{ op.get_ambito_display }}{% if op.cuerpo %} · {{ op.cuerpo }}{% endif %}</p>
+  </li>
+  {% empty %}
+  <li><p>No hay oposiciones publicadas con esos criterios.</p></li>
+  {% endfor %}
+</ul>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination" aria-label="Paginación">
+  {% for n in page_obj.paginator.page_range %}
+    {% if n == page_obj.number %}<strong>{{ n }}</strong>{% else %}<a href="?page={{ n }}">{{ n }}</a>{% endif %}
+  {% endfor %}
+</nav>
+{% endif %}
+{% endblock %}

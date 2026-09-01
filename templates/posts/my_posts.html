@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Mis apuntes</h1>
+<p><a class="btn" href="{% url 'posts:create' %}">Escribir un apunte</a></p>
+
+<h2>Borradores</h2>
+{% if drafts %}
+<ul class="card-list">
+  {% for post in drafts %}
+  <li>
+    <h3><a href="{% url 'posts:edit' post.pk %}">{{ post.display_title }}</a></h3>
+    <p class="muted">
+      {% if post.draft_saved_at %}Guardado el {{ post.draft_saved_at|date:"d/m/Y H:i" }}{% else %}Sin guardar{% endif %}
+      {% if post.published_at %}· despublicado (estuvo publicado el {{ post.published_at|date:"d/m/Y" }}){% endif %}
+    </p>
+    <p>{{ post.excerpt }}</p>
+    <p class="row-actions">
+      <a href="{% url 'posts:edit' post.pk %}">Editar</a> ·
+      <a href="{{ post.get_absolute_url }}">Ver borrador</a>
+    </p>
+    <form method="post" action="{% url 'posts:publish' post.pk %}" class="inline-form">
+      {% csrf_token %}<button type="submit">Publicar</button>
+    </form>
+    <form method="post" action="{% url 'posts:delete' post.pk %}" class="inline-form"
+          onsubmit="return confirm('¿Eliminar este borrador definitivamente?');">
+      {% csrf_token %}<button type="submit">Eliminar</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">No tienes borradores.</p>{% endif %}
+
+<h2>Publicados</h2>
+{% if published %}
+<ul class="card-list">
+  {% for post in published %}
+  <li>
+    <h3><a href="{{ post.get_absolute_url }}">{{ post.display_title }}</a></h3>
+    <p class="muted">Publicado el {{ post.published_at|date:"d/m/Y" }}
+      {% if post.has_unpublished_changes %}· <strong>tienes cambios sin publicar</strong>{% endif %}
+      {% if post.moderation_status != "approved" %}· {{ post.get_moderation_status_display }}{% endif %}
+    </p>
+    <p class="row-actions"><a href="{% url 'posts:edit' post.pk %}">Editar</a></p>
+    <form method="post" action="{% url 'posts:unpublish' post.pk %}" class="inline-form">
+      {% csrf_token %}<button type="submit">Pasar a borrador</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">Todavía no has publicado ningún apunte.</p>{% endif %}
+{% endblock %}

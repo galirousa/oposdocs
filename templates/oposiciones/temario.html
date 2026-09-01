@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="muted" aria-label="Migas de pan">
+  <a href="/">Inicio</a> › <a href="/oposiciones/">Oposiciones</a> ›
+  <a href="{{ oposicion.get_absolute_url }}">{{ oposicion.derived_title }}</a> › Temario
+</nav>
+
+<h1>Temario de {{ oposicion.derived_title }}</h1>
+<p class="answer-first">
+  El temario de la oposición a {{ oposicion.derived_title }} consta de
+  {{ total_temas }} tema{{ total_temas|pluralize }}{% if bloques|length > 1 %},
+  organizados en {{ bloques|length }} bloques{% endif %}.
+</p>
+
+{% for bloque, temas in bloques.items %}
+  {% if bloque %}<h2>{{ bloque }}</h2>{% endif %}
+  <ol>
+    {% for tema in temas %}
+    <li value="{{ tema.numero }}">{{ tema.titulo }}</li>
+    {% endfor %}
+  </ol>
+{% empty %}
+<p>Todavía no hemos cargado el temario de esta oposición.</p>
+{% endfor %}
+{% endblock %}

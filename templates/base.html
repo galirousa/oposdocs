@@ -1,0 +1,87 @@
+{% load static seo_tags %}<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ meta_title|default:SITE_NAME }} · {{ SITE_NAME }}{% endblock %}</title>
+  <meta name="description" content="{{ meta_description|default:'Documentos, temarios y convocatorias para preparar oposiciones en España.' }}">
+  {% if noindex %}<meta name="robots" content="noindex,follow">{% endif %}
+  <link rel="canonical" href="{% if canonical_path %}{{ SITE_URL }}{{ canonical_path }}{% else %}{{ CANONICAL_URL }}{% endif %}">
+  <meta property="og:site_name" content="{{ SITE_NAME }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ meta_title|default:SITE_NAME }}">
+  <meta property="og:description" content="{{ meta_description|default:'' }}">
+  <meta property="og:url" content="{% if canonical_path %}{{ SITE_URL }}{{ canonical_path }}{% else %}{{ CANONICAL_URL }}{% endif %}">
+  <meta property="og:locale" content="es_ES">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ meta_title|default:SITE_NAME }}">
+  <meta name="twitter:description" content="{{ meta_description|default:'' }}">
+  {% for payload in jsonld_payloads %}{% jsonld payload %}{% endfor %}
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="/">{{ SITE_NAME }}</a>
+    <nav class="main-nav">
+      <a href="/oposiciones/">Oposiciones</a>
+      <a href="/apuntes/">Apuntes</a>
+      <a href="/buscar/">Buscar</a>
+      {% if user.is_authenticated %}
+        <a href="/documentos/subir/">Subir documento</a>
+        <a href="/apuntes/nuevo/">Escribir</a>
+        <a href="/cuentas/logout/">Salir</a>
+      {% else %}
+        <a href="/cuentas/login/">Entrar</a>
+      {% endif %}
+    </nav>
+    <form class="header-search" action="/buscar/" method="get" role="search">
+      <input type="search" name="q" value="{{ query|default:'' }}" placeholder="Buscar temarios, convocatorias…" aria-label="Buscar">
+      <button type="submit">Buscar</button>
+    </form>
+  </div>
+</header>
+
+{% comment %}Ad slot: fixed-height container reserved from day one so ads never
+ship layout shift. Legal pages (aviso legal, privacidad, retirada) set hide_ads.{% endcomment %}
+{% if not hide_ads %}<div class="ad-slot ad-slot-top" data-ad-slot="top" aria-hidden="true"></div>{% endif %}
+
+<main class="container">
+  {% if messages %}
+  <ul class="messages">
+    {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+{% if not hide_ads %}<div class="ad-slot ad-slot-bottom" data-ad-slot="bottom" aria-hidden="true"></div>{% endif %}
+
+<footer class="site-footer">
+  <div class="container">
+    <p>
+      <a href="/aviso-legal/">Aviso legal</a> ·
+      <a href="/politica-de-privacidad/">Política de privacidad</a> ·
+      <a href="/retirada-de-contenido/">Retirada de contenido</a> ·
+      <a href="/llms.txt">llms.txt</a> ·
+      <a href="/api/schema/">API</a>
+    </p>
+    <p class="muted">© {% now "Y" %} {{ SITE_NAME }}. Contenido oficial procedente del BOE, de libre reutilización.</p>
+  </div>
+</footer>
+
+{% comment %}Consent banner: an OVERLAY on top of fully-rendered HTML, never a
+gate in front of it. Crawlers receive the complete page regardless. Rejecting is
+exactly as easy as accepting (AEPD guidance).{% endcomment %}
+<div id="consent-banner" class="consent-banner" hidden>
+  <p>Usamos cookies para publicidad solo si las aceptas. Puedes rechazarlas con un clic.</p>
+  <div class="consent-actions">
+    <button id="consent-accept" class="btn">Aceptar</button>
+    <button id="consent-reject" class="btn">Rechazar</button>
+  </div>
+</div>
+<script src="{% static 'js/consent.js' %}" defer
+        data-ads-enabled="{{ ADS_ENABLED|yesno:'1,0' }}"
+        data-adsense-client="{{ ADSENSE_CLIENT_ID }}"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+# Local development stack. `make up` migrates, seeds and serves on :8000.
+#
+# Object storage: MinIO stands in for Garage locally because it needs zero
+# init ceremony; both speak S3 and the app only sees AWS_S3_ENDPOINT_URL.
+# Production runs Garage (see docker-compose.prod.yml and docker/garage/).
+
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py sync_roles &&
+             python manage.py seed_oposiciones &&
+             python manage.py seed_documents &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      target: dev
+    command: celery -A config worker -l info -Q default,ocr --concurrency 2
+    volumes:
+      - .:/app
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opos}
+      POSTGRES_USER: ${POSTGRES_USER:-opos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dummy-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-opos}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    volumes:
+      - redisdata:/data
+
+  minio:
+    image: minio/minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-dummy-access-key}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-dummy-secret-key}
+    # Published so presigned URLs (localhost:9000) work from the host browser.
+    ports:
+      - "9000:9000"
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      sh -c "until mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-dummy-access-key} ${AWS_SECRET_ACCESS_KEY:-dummy-secret-key}; do sleep 1; done &&
+             mc mb -p local/${AWS_STORAGE_BUCKET_NAME:-opos-documents} || true"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

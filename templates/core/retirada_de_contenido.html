@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Retirada de contenido</h1>
+<p class="answer-first">
+  Si eres titular de derechos de propiedad intelectual y consideras que un
+  documento alojado en este sitio los infringe, o detectas contenido incorrecto
+  o inapropiado, comunícanoslo con este formulario. Atendemos todos los avisos,
+  registramos cada actuación y retiramos con diligencia el contenido que
+  proceda, conforme a la Ley 34/2002 (LSSI-CE).
+</p>
+
+{% if submitted %}
+<p class="answer-first">Hemos recibido tu solicitud. La revisaremos y te
+responderemos al email de contacto que hayas indicado.</p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Enviar solicitud</button>
+</form>
+{% endblock %}

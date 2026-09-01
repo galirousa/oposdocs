@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+staticfiles
+data/
+files/
+node_modules
+.DS_Store

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if query %}Resultados para “{{ query }}”{% else %}Buscar documentos{% endif %}</h1>
+
+<form action="/buscar/" method="get" role="search">
+  <p>
+    <input type="search" name="q" value="{{ query }}" placeholder="p. ej. auxiliar administrativo" aria-label="Buscar">
+    <button type="submit">Buscar</button>
+  </p>
+</form>
+
+{% if query %}
+<div class="facet-bar">
+  <strong>Ámbito:</strong>
+  {% for value, label in ambitos %}
+    <a href="?q={{ query|urlencode }}&amp;ambito={{ value }}" {% if filters.ambito == value %}class="active"{% endif %}>{{ label }}</a>
+  {% endfor %}
+  · <strong>Grupo:</strong>
+  {% for value, label in grupos %}
+    <a href="?q={{ query|urlencode }}&amp;grupo={{ value }}" {% if filters.grupo == value %}class="active"{% endif %}>{{ value }}</a>
+  {% endfor %}
+  · <strong>Origen:</strong>
+  <a href="?q={{ query|urlencode }}&amp;source_type=official" {% if filters.source_type == "official" %}class="active"{% endif %}>Oficial</a>
+  <a href="?q={{ query|urlencode }}&amp;source_type=editorial" {% if filters.source_type == "editorial" %}class="active"{% endif %}>Editorial</a>
+  <a href="?q={{ query|urlencode }}&amp;source_type=user" {% if filters.source_type == "user" %}class="active"{% endif %}>Usuarios</a>
+  {% if filters %} · <a href="?q={{ query|urlencode }}">Quitar filtros</a>{% endif %}
+</div>
+{% endif %}
+
+{% if results and results.total %}
+<p class="muted">{{ results.total }} resultado{{ results.total|pluralize }}.</p>
+<ul class="card-list">
+  {% for r in results.results %}
+  <li>
+    <h3><a href="{{ r.document.get_absolute_url }}">{{ r.document.title }}</a></h3>
+    {% if r.document.description %}<p>{{ r.document.description|truncatewords:30 }}</p>{% endif %}
+    {% if r.headline %}<p class="muted">… {{ r.headline|safe }} …</p>{% endif %}
+    <p class="muted">{{ r.document.get_source_type_display }}{% if r.document.page_count %} · {{ r.document.page_count }} páginas{% endif %}</p>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if results.num_pages > 1 %}
+<nav class="pagination" aria-label="Paginación">
+  {% for n in results.page_range %}
+    {% if n == results.page %}<strong>{{ n }}</strong>
+    {% else %}<a href="?q={{ query|urlencode }}&amp;page={{ n }}{% for k, v in filters.items %}&amp;{{ k }}={{ v|urlencode }}{% endfor %}">{{ n }}</a>{% endif %}
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% elif query %}
+<p>No hemos encontrado resultados para “{{ query }}”.</p>
+{% endif %}
+
+{% if suggestions %}
+<h2>Oposiciones populares</h2>
+<ul class="card-list">
+  {% for op in suggestions %}
+  <li><h3><a href="{{ op.get_absolute_url }}">{{ op.derived_title }}</a></h3></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

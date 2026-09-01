@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="muted" aria-label="Migas de pan">
+  <a href="/">Inicio</a> ›
+  <a href="{{ oposicion.get_absolute_url }}">{{ oposicion.derived_title }}</a> ›
+  Convocatoria {{ convocatoria.anio }}
+</nav>
+
+<h1>Convocatoria {{ convocatoria.anio }} — {{ oposicion.derived_title }}</h1>
+
+<p class="answer-first">{{ convocatoria.descripcion_jobposting }}</p>
+
+<dl class="facts">
+  {% for label, value in facts %}
+  <dt>{{ label }}</dt><dd>{{ value }}</dd>
+  {% endfor %}
+</dl>
+
+{% if convocatoria.url_boe %}
+<p><a href="{{ convocatoria.url_boe }}" rel="noopener">Texto oficial en el BOE ({{ convocatoria.referencia_boe }})</a></p>
+{% endif %}
+
+{% if convocatoria.notas %}
+<section><h2>Notas</h2><p>{{ convocatoria.notas|linebreaksbr }}</p></section>
+{% endif %}
+
+<p><a href="{{ oposicion.get_absolute_url }}">← Ficha completa de la oposición</a></p>
+{% endblock %}

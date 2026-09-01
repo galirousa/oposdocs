@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="muted" aria-label="Migas de pan">
+  <a href="/">Inicio</a>
+  {% with op=document.oposiciones.first %}
+  {% if op %} › <a href="{{ op.get_absolute_url }}">{{ op.derived_title }}</a>{% endif %}
+  {% endwith %}
+  › {{ document.title }}
+</nav>
+
+<h1>{{ document.title }}</h1>
+
+{% if document.description %}
+<p class="answer-first">{{ document.description }}</p>
+{% endif %}
+
+<dl class="facts">
+  {% for label, value in facts %}
+  <dt>{{ label }}</dt><dd>{{ value }}</dd>
+  {% endfor %}
+</dl>
+
+{% if document.storage_key %}
+<p><a class="btn" href="{% url 'documents:download' document.slug %}">Descargar documento</a>
+  <span class="muted">({{ document.download_count }} descargas)</span></p>
+{% endif %}
+
+{% if document.text_preview %}
+<section>
+  {% comment %}Extracted-text preview in the initial HTML: this is what makes
+  the document findable by search engines and quotable by assistants.{% endcomment %}
+  <h2>Vista previa del contenido</h2>
+  <p>{{ document.text_preview }}</p>
+</section>
+{% elif document.extraction_status != "done" %}
+<p class="muted">La vista previa del texto estará disponible cuando termine el procesado del documento.</p>
+{% endif %}
+
+<p class="muted">¿Crees que este documento infringe derechos de autor u otra norma?
+  <a href="/retirada-de-contenido/">Solicita su retirada</a>.</p>
+{% endblock %}

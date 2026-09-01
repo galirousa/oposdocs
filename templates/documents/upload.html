@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Subir un documento</h1>
+
+{% if uploaded_doc %}
+  {% if duplicate %}
+  <p class="answer-first">Este archivo ya existe en la plataforma:
+    <a href="{{ uploaded_doc.get_absolute_url }}">{{ uploaded_doc.title }}</a>.
+    Te hemos enlazado al documento existente en lugar de guardar una copia.</p>
+  {% else %}
+  <p class="answer-first">Documento recibido. Está en proceso
+    {% if uploaded_doc.moderation_status == "pending" %} y pasará a revisión antes de publicarse{% endif %}:
+    <a href="{{ uploaded_doc.get_absolute_url }}">{{ uploaded_doc.title }}</a></p>
+  {% endif %}
+{% endif %}
+
+<p class="muted">Solo se admiten archivos {{ allowed_types }}. Al subir un
+documento declaras bajo tu responsabilidad que tienes derecho a compartirlo.</p>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Subir documento</button>
+</form>
+{% endblock %}

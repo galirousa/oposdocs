@@ -1,0 +1,109 @@
+# Production stack: gunicorn behind Caddy, on a single host behind a
+# Cloudflare Tunnel. Postgres, Redis, Garage and ClamAV live on the internal
+# Docker network only — never published to the host. Data directories are
+# bind mounts to host paths (mirrored disk), not anonymous volumes.
+#
+# One-time Garage setup after first boot (single node):
+#   docker compose -f docker-compose.prod.yml exec garage /garage status
+#   docker compose -f docker-compose.prod.yml exec garage /garage layout assign -z dc1 -c 500G <node_id>
+#   docker compose -f docker-compose.prod.yml exec garage /garage layout apply --version 1
+#   docker compose -f docker-compose.prod.yml exec garage /garage key import $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
+#   docker compose -f docker-compose.prod.yml exec garage /garage bucket create opos-documents
+#   docker compose -f docker-compose.prod.yml exec garage /garage bucket allow --read --write opos-documents --key $AWS_ACCESS_KEY_ID
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-localhost}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy/data:/data
+      - ./data/caddy/config:/config
+    depends_on:
+      - web
+
+  web:
+    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      - postgres
+      - redis
+      - garage
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    restart: unless-stopped
+    command: celery -A config worker -l info -Q default --concurrency 2
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      - postgres
+      - redis
+
+  # OCR on its own low-priority worker with capped concurrency so one
+  # 800-page scan cannot starve the default queue or the web workers.
+  worker-ocr:
+    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    restart: unless-stopped
+    command: celery -A config worker -l info -Q ocr --concurrency 1 --prefetch-multiplier 1
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      - postgres
+      - redis
+
+  beat:
+    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    restart: unless-stopped
+    command: celery -A config beat -l info
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      - redis
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - ./data/redis:/data
+
+  garage:
+    image: dxflrs/garage:v1.0.1
+    restart: unless-stopped
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+      - ./data/garage/meta:/var/lib/garage/meta
+      - ./data/garage/data:/var/lib/garage/data
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - ./data/clamav:/var/lib/clamav

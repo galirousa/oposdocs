@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Prepara tu oposición con documentos oficiales y temarios</h1>
+<p class="answer-first">
+  {{ SITE_NAME }} reúne en un solo lugar los documentos necesarios para preparar
+  oposiciones en España: convocatorias y bases oficiales publicadas en el BOE,
+  temarios completos elaborados por nuestra redacción y apuntes compartidos por
+  otros opositores. Todo el contenido público es de acceso libre y sin registro.
+</p>
+
+<h2>Oposiciones destacadas</h2>
+<ul class="card-list">
+  {% for op in featured %}
+  <li>
+    <h3><a href="{{ op.get_absolute_url }}">{{ op.derived_title }}</a></h3>
+    <p class="muted">Grupo {{ op.grupo }} · {{ op.get_ambito_display }}{% if op.current_convocatoria %} · Convocatoria {{ op.current_convocatoria.anio }}: {{ op.current_convocatoria.get_estado_display|lower }}{% endif %}</p>
+  </li>
+  {% empty %}
+  <li><p>Aún no hay oposiciones destacadas.</p></li>
+  {% endfor %}
+</ul>
+
+{% if convocatorias_abiertas %}
+<h2>Convocatorias con plazo abierto</h2>
+<ul class="card-list">
+  {% for conv in convocatorias_abiertas %}
+  <li>
+    <h3><a href="{{ conv.get_absolute_url }}">{{ conv.oposicion.derived_title }} — {{ conv.anio }}</a></h3>
+    <p class="muted">
+      {% if conv.plazas %}{{ conv.plazas }} plazas · {% endif %}
+      {% if conv.fecha_limite_solicitud %}Plazo hasta el {{ conv.fecha_limite_solicitud|date:"d/m/Y" }}{% endif %}
+    </p>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<p><a href="/oposiciones/">Ver el índice completo de oposiciones →</a></p>
+{% endblock %}
