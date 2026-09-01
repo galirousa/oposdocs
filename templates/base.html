@@ -18,6 +18,7 @@
   <meta name="twitter:description" content="{{ meta_description|default:'' }}">
   {% for payload in jsonld_payloads %}{% jsonld payload %}{% endfor %}
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
 <header class="site-header">
@@ -47,6 +48,7 @@ ship layout shift. Legal pages (aviso legal, privacidad, retirada) set hide_ads.
 {% if not hide_ads %}<div class="ad-slot ad-slot-top" data-ad-slot="top" aria-hidden="true"></div>{% endif %}
 
 <main class="container">
+  {% block subnav %}{% endblock %}
   {% if messages %}
   <ul class="messages">
     {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
@@ -83,5 +85,6 @@ exactly as easy as accepting (AEPD guidance).{% endcomment %}
 <script src="{% static 'js/consent.js' %}" defer
         data-ads-enabled="{{ ADS_ENABLED|yesno:'1,0' }}"
         data-adsense-client="{{ ADSENSE_CLIENT_ID }}"></script>
+{% block extra_body %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% comment %}Every allauth page — login, signup, password reset, email
+management, logout — funnels through this layout. Without this override
+allauth renders its own bare HTML: no site header, no stylesheet, no
+consent banner. The account area is part of the application, so it inherits
+the same chrome as everything else.
+
+The `content` block is deliberately NOT redefined here: allauth's own
+templates fill it, and it lands straight in base.html's content block. The
+account menu goes in `subnav` instead, which base.html reserves for exactly
+this.{% endcomment %}
+
+{% block title %}{% block head_title %}{% endblock head_title %} · {{ SITE_NAME }}{% endblock %}
+
+{% comment %}Account pages are transactional, never search results. robots.txt
+already disallows /cuentas/; this is the belt to that pair of braces.{% endcomment %}
+{% block extra_head %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+
+{% block subnav %}
+  {% if user.is_authenticated %}
+  <nav class="subnav" aria-label="{% trans 'Cuenta' %}">
+    {% url 'account_email' as email_url %}
+    {% if email_url %}<a href="{{ email_url }}">Correo electrónico</a>{% endif %}
+    {% url 'account_change_password' as change_password_url %}
+    {% if change_password_url %}<a href="{{ change_password_url }}">Contraseña</a>{% endif %}
+    {% url 'socialaccount_connections' as connections_url %}
+    {% if connections_url %}<a href="{{ connections_url }}">Cuentas conectadas</a>{% endif %}
+    {% url 'account_logout' as logout_url %}
+    {% if logout_url %}<a href="{{ logout_url }}">Cerrar sesión</a>{% endif %}
+  </nav>
+  {% endif %}
+{% endblock %}
