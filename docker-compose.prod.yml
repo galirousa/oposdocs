@@ -28,7 +28,7 @@ services:
       - web
 
   web:
-    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -44,7 +44,7 @@ services:
       retries: 3
 
   worker:
-    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
     restart: unless-stopped
     command: celery -A config worker -l info -Q default --concurrency 2
     env_file: .env
@@ -57,7 +57,7 @@ services:
   # OCR on its own low-priority worker with capped concurrency so one
   # 800-page scan cannot starve the default queue or the web workers.
   worker-ocr:
-    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
     restart: unless-stopped
     command: celery -A config worker -l info -Q ocr --concurrency 1 --prefetch-multiplier 1
     env_file: .env
@@ -68,7 +68,7 @@ services:
       - redis
 
   beat:
-    image: ${IMAGE:-ghcr.io/OWNER/opos:latest}
+    image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
     restart: unless-stopped
     command: celery -A config beat -l info
     env_file: .env
