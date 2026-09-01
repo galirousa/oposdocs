@@ -88,8 +88,8 @@ moderation and takedowns, the consent layer, and user-written markdown posts
 
 - No backups of any kind. Highest-stakes item in the plan (§12); nothing else
   on this list matters as much.
-- The repository is **not under version control yet**. `git init` before the
-  next feature; the deploy story assumes a remote.
+- Version control exists (`main`, initial import) but there is **no remote**.
+  The deploy story in `deploy.sh` and CI assume one.
 - User uploads pass through the app server. The plan calls for a presigned
   direct-to-storage upload from the browser (`documents/storage_utils.py`
   already has `presigned_put_url`).
