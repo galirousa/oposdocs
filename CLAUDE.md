@@ -88,8 +88,12 @@ moderation and takedowns, the consent layer, and user-written markdown posts
 
 - No backups of any kind. Highest-stakes item in the plan (§12); nothing else
   on this list matters as much.
-- Version control exists (`main`, initial import) but there is **no remote**.
-  The deploy story in `deploy.sh` and CI assume one.
+- The remote is `github.com/galirousa/Oposdocs` (`main`), so CI now lints,
+  tests and publishes a GHCR image on every push. **The deploy job can never
+  fire**: it is gated on `workflow_dispatch`, which is missing from the
+  workflow's `on:` triggers, and the `DEPLOY_HOST` / `DEPLOY_USER` /
+  `DEPLOY_SSH_KEY` secrets do not exist yet. Deploys are `./deploy.sh` by
+  hand on the server until both are fixed.
 - User uploads pass through the app server. The plan calls for a presigned
   direct-to-storage upload from the browser (`documents/storage_utils.py`
   already has `presigned_put_url`).
