@@ -1,7 +1,9 @@
 # Production stack: gunicorn behind Caddy, on a single host behind a
-# Cloudflare Tunnel. Postgres, Redis, Garage and ClamAV live on the internal
-# Docker network only — never published to the host. Data directories are
-# bind mounts to host paths (mirrored disk), not anonymous volumes.
+# Cloudflare Tunnel (cloudflared). Nothing is published to the host — the
+# tunnel dials outbound, so no inbound port is open at all. Postgres, Redis,
+# Garage and ClamAV live on the internal Docker network only. Data
+# directories are bind mounts to host paths (mirrored disk), not anonymous
+# volumes.
 #
 # One-time Garage setup after first boot (single node):
 #   docker compose -f docker-compose.prod.yml exec garage /garage status
@@ -15,9 +17,10 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    # No host port binding: the Cloudflare Tunnel dials outbound and reaches
+    # Caddy over the internal Docker network, so no inbound port is opened.
+    # (Direct-access fallback, if you ever want one, would be a rare host
+    # port here, e.g. "8080:80".)
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:-localhost}
     volumes:
@@ -26,6 +29,13 @@ services:
       - ./data/caddy/config:/config
     depends_on:
       - web
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - caddy
 
   web:
     image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}

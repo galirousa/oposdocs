@@ -19,6 +19,10 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+# The container healthcheck curls http://localhost:8000/healthz, so loopback
+# must always be an allowed host regardless of the public domain in .env.
+# Without this, /healthz 400s with DisallowedHost on every healthcheck tick.
+ALLOWED_HOSTS += ["localhost", "127.0.0.1", "[::1]"]
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Public origin used to build absolute URLs (canonical, sitemaps, JSON-LD).

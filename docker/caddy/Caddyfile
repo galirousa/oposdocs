@@ -1,6 +1,17 @@
-# Automatic HTTPS for the public domain. Behind a Cloudflare Tunnel the
-# tunnel connects to port 80; Caddy still handles direct HTTPS if exposed.
-{$SITE_DOMAIN} {
+# Caddy serves plain HTTP on the internal Docker network only — the
+# Cloudflare Tunnel terminates TLS at the edge and dials in to this origin.
+# No ACME and no host port binding (see docker-compose.prod.yml): the only
+# client that reaches Caddy is cloudflared.
+{
+	servers {
+		# cloudflared connects from the private Docker network. Trust it so
+		# Caddy preserves the X-Forwarded-Proto header cloudflared sets
+		# (https), which Django's SECURE_PROXY_SSL_HEADER relies on.
+		trusted_proxies static private_ranges
+	}
+}
+
+http://{$SITE_DOMAIN} {
 	encode gzip zstd
 
 	reverse_proxy web:8000
