@@ -57,7 +57,7 @@ class DocumentAdminForm(forms.ModelForm):
         )
 
     def clean(self) -> dict:
-        import hashlib
+        from .ingest import sha256_of
 
         cleaned = super().clean()
         uploaded = cleaned.get("archivo")
@@ -65,7 +65,7 @@ class DocumentAdminForm(forms.ModelForm):
             raise forms.ValidationError("Selecciona un archivo para el documento nuevo.")
         if uploaded:
             blob = uploaded.read()
-            sha256 = hashlib.sha256(blob).hexdigest()
+            sha256 = sha256_of(blob)
             existing = Document.objects.exclude(pk=self.instance.pk).filter(sha256=sha256).first()
             if existing:
                 raise forms.ValidationError(

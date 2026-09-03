@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Deploys are manual: the deploy job below is gated on this trigger, and
+  # without it declared here that job could never run at all.
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -83,11 +86,32 @@ jobs:
   deploy:
     # Manually triggered: same single command you can run by hand on the host
     # (./deploy.sh). Building happens in CI so the server never competes with
-    # serving traffic.
+    # serving traffic; this job only pulls the image already published by the
+    # last push to main.
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
+    # Without this, a manual deploy would race lint and test and could ship
+    # a red build.
+    needs: [lint, test]
     environment: production
     steps:
+      - name: Check the deploy secrets exist
+        # An unset secret becomes an empty string, and the ssh action then
+        # fails with an opaque connection error. Say what is actually wrong.
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          missing=""
+          [ -n "$DEPLOY_HOST" ] || missing="$missing DEPLOY_HOST"
+          [ -n "$DEPLOY_USER" ] || missing="$missing DEPLOY_USER"
+          [ -n "$DEPLOY_SSH_KEY" ] || missing="$missing DEPLOY_SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing" >&2
+            echo "Add them under Settings -> Secrets and variables -> Actions." >&2
+            exit 1
+          fi
       - uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}

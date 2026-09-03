@@ -8,6 +8,7 @@ object storage, static files are baked into the image and served by whitenoise.
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
     "documents",
     "posts",
     "search",
+    "sources",
 ]
 
 MIDDLEWARE = [
@@ -199,6 +201,10 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 # dedicated -Q ocr -c settings in compose).
 CELERY_TASK_ROUTES = {
     "documents.tasks.ocr_document": {"queue": "ocr"},
+    # Harvesting gets its own queue with a single worker at concurrency 1, so
+    # two harvest tasks can never run at the same time however they are
+    # enqueued (see sources/tasks.py for the four-part throttle).
+    "sources.tasks.*": {"queue": "harvest"},
 }
 CELERY_TASK_TIME_LIMIT = 60 * 30
 CELERY_TASK_SOFT_TIME_LIMIT = 60 * 25
@@ -223,6 +229,50 @@ OCR_MAX_PAGES = env.int("OCR_MAX_PAGES", default=300)
 # --- Search ----------------------------------------------------------------
 
 SEARCH_BACKEND = env("SEARCH_BACKEND", default="postgres")
+
+# --- Admin bootstrap (accounts/management/commands/create_admin.py) --------
+
+DJANGO_ADMIN_USERNAME = env("DJANGO_ADMIN_USERNAME", default="admin")
+DJANGO_ADMIN_EMAIL = env("DJANGO_ADMIN_EMAIL", default="admin@example.com")
+# Empty means "use the development placeholder", which create_admin refuses
+# to do when DEBUG is off. Set this in the server .env to bootstrap an admin.
+DJANGO_ADMIN_PASSWORD = env("DJANGO_ADMIN_PASSWORD", default="")
+
+# --- Official source harvesting (sources app) ------------------------------
+
+# Identify ourselves to public services; they are entitled to know who is
+# calling and how to reach us if we misbehave. Derived from SITE_URL rather
+# than hardcoded, so the bot can never advertise a domain we do not serve.
+HARVEST_USER_AGENT = env(
+    "HARVEST_USER_AGENT",
+    default=f"OposdocsBot/1.0 (+{SITE_URL.rstrip('/')}/robots.txt)",
+)
+# Seconds between two downloads inside one day's harvest.
+HARVEST_DOWNLOAD_DELAY = env.float("HARVEST_DOWNLOAD_DELAY", default=1.5)
+# How many recent days the nightly job re-checks. Anything larger than the
+# longest outage you expect makes missed nights self-healing.
+HARVEST_CATCHUP_DAYS = env.int("HARVEST_CATCHUP_DAYS", default=7)
+# Oldest day the backfill walks back to.
+HARVEST_BACKFILL_START = env("HARVEST_BACKFILL_START", default="2020-01-01")
+# Pause between backfill days. The backfill enqueues the next day only after
+# the current one finishes, so this is the whole pacing knob: 120s over ~2,400
+# days is roughly three days of wall clock at a load the server will not feel.
+HARVEST_BACKFILL_COUNTDOWN = env.int("HARVEST_BACKFILL_COUNTDOWN", default=120)
+# Lock expiry, so a worker killed mid-harvest cannot block harvesting forever.
+HARVEST_LOCK_TIMEOUT = env.int("HARVEST_LOCK_TIMEOUT", default=60 * 60 * 6)
+# Refuse absurdly large annexes rather than OOM a small worker.
+HARVEST_MAX_PDF_BYTES = env.int("HARVEST_MAX_PDF_BYTES", default=60 * 1024 * 1024)
+
+# Nightly at 06:40 Europe/Madrid: the BOE is published early morning, and by
+# then the previous day is settled. Only ever one entry, because harvest_recent
+# walks the whole catch-up window itself.
+CELERY_BEAT_SCHEDULE = {
+    "harvest-boe-nightly": {
+        "task": "sources.tasks.harvest_recent",
+        "schedule": crontab(hour=6, minute=40),
+        "options": {"queue": "harvest", "expires": 60 * 60 * 12},
+    },
+}
 
 # --- Crawlers and indexing -------------------------------------------------
 

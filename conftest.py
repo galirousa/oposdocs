@@ -19,3 +19,12 @@ def _local_memory_cache(settings):
 def _indexing_on(settings):
     settings.ALLOW_INDEXING = True
     settings.DEBUG = False
+
+
+@pytest.fixture(autouse=True)
+def _memory_storage(settings):
+    """Tests must not require MinIO/Garage either."""
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    }

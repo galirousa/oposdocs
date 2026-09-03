@@ -1,4 +1,3 @@
-import hashlib
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -11,10 +10,10 @@ from core import seo
 from core.views import MarkdownNegotiationMixin
 
 from .forms import ALLOWED_MIME_TYPES, DocumentUploadForm
+from .ingest import store_document
 from .models import Document
 from .permissions import can_access
 from .storage_utils import presigned_get_url
-from .tasks import start_pipeline
 
 
 class DocumentDetailView(MarkdownNegotiationMixin, DetailView):
@@ -100,52 +99,40 @@ def upload_document(request: HttpRequest) -> HttpResponse:
     plan is a presigned direct-to-storage upload from the browser (see
     storage_utils.presigned_put_url) so the server never handles the bytes.
     """
-    from django.core.files.base import ContentFile
-    from django.core.files.storage import default_storage
-
     uploaded_doc: Document | None = None
     duplicate = False
     if request.method == "POST":
         form = DocumentUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            blob = form.cleaned_data["file"].read()
-            sha256 = hashlib.sha256(blob).hexdigest()
-            existing = Document.objects.filter(sha256=sha256).first()
-            if existing:
-                # Dedupe: link to the existing document instead of storing a copy.
-                uploaded_doc, duplicate = existing, True
-            else:
-                is_privileged = (
-                    request.user.is_staff
-                    or request.user.groups.filter(name__in=["Contributor", "Editor"]).exists()
-                )
-                document = Document(
-                    title=form.cleaned_data["title"],
-                    description=form.cleaned_data["description"],
-                    uploader=request.user,
-                    source_type=(
-                        Document.SourceType.EDITORIAL
-                        if request.user.is_staff
-                        else Document.SourceType.USER
-                    ),
-                    visibility=Document.Visibility.PUBLIC,
-                    # Contributors and editors skip the moderation queue.
-                    moderation_status=(
-                        Document.ModerationStatus.APPROVED
-                        if is_privileged
-                        else Document.ModerationStatus.PENDING
-                    ),
-                    sha256=sha256,
-                    storage_key=Document.storage_key_for(sha256),
-                    mime_type=form.cleaned_data["file"].content_type,
-                    size_bytes=len(blob),
-                    license=form.cleaned_data["license"],
-                )
-                document.save()
-                document.oposiciones.set(form.cleaned_data["oposiciones"])
-                default_storage.save(document.storage_key, ContentFile(blob))
-                start_pipeline(document.pk)
-                uploaded_doc = document
+            upload = form.cleaned_data["file"]
+            is_privileged = (
+                request.user.is_staff
+                or request.user.groups.filter(name__in=["Contributor", "Editor"]).exists()
+            )
+            # Dedupe, storage and the pipeline all live in documents.ingest, so
+            # the upload view, the admin and the harvester cannot drift apart.
+            uploaded_doc, created = store_document(
+                upload.read(),
+                title=form.cleaned_data["title"],
+                description=form.cleaned_data["description"],
+                uploader=request.user,
+                source_type=(
+                    Document.SourceType.EDITORIAL
+                    if request.user.is_staff
+                    else Document.SourceType.USER
+                ),
+                visibility=Document.Visibility.PUBLIC,
+                # Contributors and editors skip the moderation queue.
+                moderation_status=(
+                    Document.ModerationStatus.APPROVED
+                    if is_privileged
+                    else Document.ModerationStatus.PENDING
+                ),
+                mime_type=upload.content_type,
+                license=form.cleaned_data["license"],
+                oposiciones=form.cleaned_data["oposiciones"],
+            )
+            duplicate = not created
     else:
         form = DocumentUploadForm()
     return render(

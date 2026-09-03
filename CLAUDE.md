@@ -81,19 +81,45 @@ Shipped: editorial core (oposición/convocatoria/tema), the discoverability
 layer (URL taxonomy, JSON-LD, robots.txt, `/llms.txt`, `.md` negotiation,
 sitemaps), documents with the Celery ingestion pipeline, Postgres full-text
 search behind a backend protocol, accounts and role groups, user uploads with
-moderation and takedowns, the consent layer, and user-written markdown posts
-(*apuntes*) with autosave and drafts. See README.md for the detail.
+moderation and takedowns, the consent layer, user-written markdown posts
+(*apuntes*) with autosave and drafts, and the `sources` app: nightly BOE
+harvesting into the moderation queue, throttled four ways so it cannot
+overwhelm one small server (see README *Harvesting official documents*).
+See README.md for the detail.
+
+`documents/ingest.py` is the single path into storage: SHA-256 dedupe,
+content-addressed write, pipeline kick-off. The upload view, the admin and the
+harvester all go through it — do not reimplement it in a fourth place.
 
 ### Known gaps to close for the MVP
 
 - No backups of any kind. Highest-stakes item in the plan (§12); nothing else
-  on this list matters as much.
-- The remote is `github.com/galirousa/Oposdocs` (`main`), so CI now lints,
-  tests and publishes a GHCR image on every push. **The deploy job can never
-  fire**: it is gated on `workflow_dispatch`, which is missing from the
-  workflow's `on:` triggers, and the `DEPLOY_HOST` / `DEPLOY_USER` /
-  `DEPLOY_SSH_KEY` secrets do not exist yet. Deploys are `./deploy.sh` by
-  hand on the server until both are fixed.
+  on this list matters as much. Now more urgent than it was: the BOE harvester
+  means content volume grows without anyone touching the machine.
+- The BOE backfill has **not** been run. Measured, not guessed: BOE II.B is
+  ~37 documents and ~10 MB per edition, so 2020→today is **~66,000 documents
+  and ~17 GB**, and every one lands `pending` for approval. Decide the start
+  date and the moderation approach (bulk-approve by rule match?) before
+  launching it, and run it on the server, not on a laptop. Two 2020 days and
+  2026-09-01 are imported as a real sample.
+- Harvesting covers the BOE only. `HarvestedItem`/`HarvestRun` are keyed by a
+  `Boletin` choice so the autonomous bulletins (DOG, BOJA, BOCM…) need a client
+  module, not a new data model.
+- The harvester does not create `Convocatoria` rows: plazas, dates and turno
+  breakdowns would have to be parsed out of prose, and guessing them wrong on
+  a public page is worse than leaving them to an editor.
+- The remote is `github.com/galirousa/Oposdocs` (`main`), so CI lints, tests
+  and publishes a GHCR image on every push. The `workflow_dispatch` trigger is
+  now declared, so the deploy job can fire, and it `needs: [lint, test]` so a
+  manual deploy cannot ship a red build. **It still cannot succeed**: the
+  `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY` secrets do not exist, and a
+  preflight step fails with that list rather than an opaque SSH error. Until
+  they are added, deploys are `./deploy.sh` by hand on the server.
+- The repo is public but the GHCR package is private, so the server needs
+  `docker login ghcr.io` with a classic `read:packages` token. `deploy.sh`
+  distinguishes an auth failure (stop, print the login command) from an
+  unreachable registry (stop unless `ALLOW_LOCAL_BUILD=1`), instead of
+  silently building the image on the box that serves traffic.
 - User uploads pass through the app server. The plan calls for a presigned
   direct-to-storage upload from the browser (`documents/storage_utils.py`
   already has `presigned_put_url`).

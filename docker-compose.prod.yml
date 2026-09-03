@@ -77,10 +77,28 @@ services:
       - postgres
       - redis
 
+  # Harvesting: one worker, concurrency 1, its own queue. This is the hard
+  # guarantee that only one harvest task executes at a time.
+  worker-harvest:
+    image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
+    restart: unless-stopped
+    command: >
+      celery -A config worker -l info -Q harvest
+      --concurrency 1 --prefetch-multiplier 1
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      - postgres
+      - redis
+
   beat:
     image: ${IMAGE:-ghcr.io/galirousa/oposdocs:latest}
     restart: unless-stopped
-    command: celery -A config beat -l info
+    # --schedule under /tmp: beat insists on a local shelve file, and /tmp is
+    # container scratch, not application state. Losing it on restart only
+    # means the next run is recomputed from the crontab.
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
     env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod

@@ -43,6 +43,12 @@ prompt 8):
   takedown pages.
 - **Consent** — overlay banner (never a gate), equal accept/reject, no ad
   scripts before consent, server-side consent audit log.
+- **Official sources (harvesting)** — nightly Celery Beat job that pulls
+  section II.B of the BOE (*Oposiciones y concursos*) from the open-data API,
+  stores each PDF as an `official` document and drops it in the moderation
+  queue. Ledger of every item seen (`HarvestedItem`), per-day run record
+  (`HarvestRun`), and keyword rules (`HarvestRule`) that attach items to an
+  oposición. Backfills to 2020 one day at a time. See *Harvesting* below.
 - **Posts (*apuntes*)** — study notes written on the site in markdown at
   `/apuntes/`: rendered and sanitised on save (allowlist, `nofollow ugc` on
   outbound links) so the formatted text ships in the first HTML response;
@@ -107,7 +113,88 @@ make shell     # Django shell
 make test      # pytest
 make migrate   # apply migrations
 make lint      # ruff check and format
+make admin     # create the superuser non-interactively
 ```
+
+## Harvesting official documents
+
+The `sources` app harvests BOE section **II.B — Oposiciones y concursos** from
+`https://www.boe.es/datosabiertos/api/boe/sumario/YYYYMMDD`. Around 20–30 items
+and 5–10 MB a day.
+
+Requests identify themselves as `OposdocsBot/1.0 (+<SITE_URL>/robots.txt)`,
+derived from `SITE_URL` so the bot cannot advertise a domain we do not serve.
+
+```bash
+make harvest-recent                     # the last 7 days (what the nightly job does)
+DAY=2026-09-01 make harvest-day         # one specific day
+SINCE=2020-01-01 make backfill          # the full backfill, in the foreground
+```
+
+Imported documents are `source_type=official`, `license=official_public`, and
+**`moderation_status=pending`**: nothing reaches the public site until it is
+approved in the admin. Approve in bulk under *Documentos*; triage what the
+harvester found under *Items capturados*.
+
+### Why it cannot overwhelm the server
+
+Four independent throttles, because any one alone leaves a hole:
+
+1. A dedicated `harvest` queue served by one worker at `--concurrency 1`, so
+   two harvest tasks never execute at once however they were enqueued.
+2. A Redis lock: Beat firing while a backfill is mid-flight is a no-op, not a
+   task queued up behind it.
+3. Downloads inside a day are sequential with `HARVEST_DOWNLOAD_DELAY` between
+   them — one file at a time, never a fan-out.
+4. The backfill enqueues the next day only *after* the current one finishes,
+   with `HARVEST_BACKFILL_COUNTDOWN` seconds in between. At the default 120s,
+   2020→today is roughly three days of unattended trickle.
+
+The nightly job re-checks `HARVEST_CATCHUP_DAYS` (7) days and skips those with
+a completed run, so a missed night — downtime, or the lock held by a backfill —
+heals itself without any manual catch-up.
+
+Beat runs in production only. Dev has the harvest worker but no beat container,
+so local development never starts downloading the BOE on its own.
+
+## Deploying
+
+The container image is **private** on GHCR, so the server needs a registry
+login once, as the user that runs the deploy:
+
+```bash
+echo <TOKEN> | docker login ghcr.io -u <github-username> --password-stdin
+```
+
+`<TOKEN>` is a classic personal access token with the `read:packages` scope.
+Docker writes it to `~/.docker/config.json`, so it survives reboots. Without
+it, `deploy.sh` stops with the exact command to run — it will not fall back to
+building the image on the machine that is serving traffic (pass
+`ALLOW_LOCAL_BUILD=1` if you really want that).
+
+Then, on the server:
+
+```bash
+cd /srv/opos && git pull && ./deploy.sh
+```
+
+The `git pull` matters as much as the image pull: compose services and their
+commands live in the repo, so a new worker (or a changed `beat` command) only
+appears if the checkout is updated too.
+
+### Bootstrapping the admin user
+
+Set `DJANGO_ADMIN_PASSWORD` in the server's `.env`, then:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm web python manage.py create_admin
+```
+
+It creates or updates the superuser named by `DJANGO_ADMIN_USERNAME`
+(default `admin`) and is safe to re-run. With `DEBUG` off it refuses to fall
+back to the development placeholder, so an unset password is an error rather
+than a weak admin account. Change the password at `/admin/password_change/`
+after the first login.
 
 ## Running tools on the host
 

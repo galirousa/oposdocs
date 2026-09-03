@@ -42,6 +42,26 @@ services:
       redis:
         condition: service_started
 
+  # Harvesting runs on its own queue at concurrency 1 so a nightly job or a
+  # backfill can never run two at a time, nor compete with the pipeline.
+  # No beat container in dev on purpose: local development should not start
+  # downloading the BOE by itself. Drive it with `make harvest-day` instead.
+  worker-harvest:
+    build:
+      context: .
+      target: dev
+    command: >
+      celery -A config worker -l info -Q harvest
+      --concurrency 1 --prefetch-multiplier 1
+    volumes:
+      - .:/app
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   postgres:
     image: postgres:16
     environment:

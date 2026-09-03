@@ -1,6 +1,6 @@
 COMPOSE ?= docker compose
 
-.PHONY: up down logs shell test migrate lint seed superuser fmt
+.PHONY: up down logs shell test migrate lint seed superuser admin fmt harvest-day harvest-recent backfill
 
 up: .env
 	$(COMPOSE) up --build -d
@@ -39,3 +39,21 @@ seed:
 
 superuser:
 	$(COMPOSE) exec web python manage.py createsuperuser
+
+# Non-interactive admin with the development placeholder password.
+admin:
+	$(COMPOSE) exec web python manage.py create_admin
+
+# --- Official source harvesting --------------------------------------------
+# DAY=2026-09-01 make harvest-day
+harvest-day:
+	$(COMPOSE) exec web python manage.py harvest_boe --day $(DAY)
+
+# The last N days (default 7), newest first. Same work the nightly job does.
+harvest-recent:
+	$(COMPOSE) exec web python manage.py harvest_boe --days $(or $(DAYS),7) --skip-done
+
+# The full backfill, in the foreground so you can watch it. SINCE=2020-01-01.
+backfill:
+	$(COMPOSE) exec web python manage.py harvest_boe --backfill \
+		--since $(or $(SINCE),2020-01-01) --skip-done --delay $(or $(DELAY),2)
